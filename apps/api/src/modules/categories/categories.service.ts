@@ -21,6 +21,7 @@ import {
   nameKey,
   slugify,
 } from "./categories.names.js";
+import { prunableCategoryIds } from "./prune.js";
 
 const log = createLogger("categories");
 
@@ -34,7 +35,8 @@ export interface CategoryDoc {
   emoji: string;
   color: CategoryColor;
   description?: string | null;
-  createdBy: "ai" | "user";
+  /** Missing on documents from before origins existed: treated as "ai". */
+  origin?: "ai" | "user";
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -51,6 +53,7 @@ function toDto(doc: CategoryDoc, itemCount: number): CategoryDto {
     color: doc.color,
     description: doc.description ?? null,
     itemCount,
+    origin: doc.origin ?? "ai",
     createdAt: (doc.createdAt ?? new Date()).toISOString(),
     updatedAt: (doc.updatedAt ?? new Date()).toISOString(),
   };
@@ -147,7 +150,7 @@ async function insert(
     emoji?: string | null;
     color?: string | null;
     description?: string | null;
-    createdBy: "ai" | "user";
+    origin: "ai" | "user";
   },
 ): Promise<CategoryDoc> {
   const name = cleanName(fields.name);
@@ -168,7 +171,7 @@ async function insert(
       emoji: cleanEmoji(fields.emoji),
       color: cleanColor(fields.color, name),
       description: fields.description?.trim().slice(0, 200) || null,
-      createdBy: fields.createdBy,
+      origin: fields.origin,
     });
     return doc.toObject() as CategoryDoc;
   } catch (error) {
@@ -193,7 +196,7 @@ export async function create(
   const doc = await insert(userId, {
     ...body,
     parentId: body.parentId ?? null,
-    createdBy: "user",
+    origin: "user",
   });
   return toDto(doc, 0);
 }
@@ -235,6 +238,14 @@ export async function update(
     set.slug = slugify(name);
   }
   if (body.emoji !== undefined) set.emoji = cleanEmoji(body.emoji);
+  // A user-shaped AI category is the user's now: it is never auto-removed.
+  if (
+    body.name !== undefined ||
+    body.emoji !== undefined ||
+    body.color !== undefined
+  ) {
+    set.origin = "user";
+  }
   if (body.color !== undefined) set.color = body.color;
   if (body.description !== undefined) {
     set.description = body.description?.trim() || null;
@@ -269,6 +280,8 @@ export async function remove(userId: string, id: string): Promise<void> {
     { $set: { categoryId: null } },
   );
   await Category.deleteMany({ userId: current.userId, _id: { $in: ids } });
+  // Deleting a child may leave an AI root empty.
+  await pruneEmptyAiCategories(userId);
 }
 
 export interface AiCategorySuggestion {
@@ -300,7 +313,7 @@ async function findOrCreate(
       emoji: suggestion.emoji,
       color: suggestion.color,
       description: suggestion.description,
-      createdBy: "ai",
+      origin: "ai",
     });
     log.info(
       { userId, categoryId: created._id.toString(), child: Boolean(parentId) },
@@ -368,4 +381,42 @@ export async function resolveAiPath(
     childSuggestion,
   );
   return child._id.toString();
+}
+
+/**
+ * Deletes the user's empty AI categories (see prune.ts). Called after an
+ * item leaves a category: delete, move, reprocess, category delete. Cheap:
+ * one distinct over the user's items and one small category read.
+ */
+export async function pruneEmptyAiCategories(userId: string): Promise<number> {
+  const owner = new Types.ObjectId(userId);
+  const [categories, used] = await Promise.all([
+    Category.find({ userId: owner }, { _id: 1, parentId: 1, origin: 1 }).lean<
+      Array<{
+        _id: Types.ObjectId;
+        parentId?: Types.ObjectId | null;
+        origin?: "ai" | "user";
+      }>
+    >(),
+    Item.distinct("categoryId", { userId: owner, categoryId: { $ne: null } }),
+  ]);
+  const ids = prunableCategoryIds(
+    categories.map((c) => ({
+      id: c._id.toString(),
+      parentId: c.parentId ? c.parentId.toString() : null,
+      origin: c.origin,
+    })),
+    new Set(used.map((id) => String(id))),
+  );
+  if (ids.length === 0) return 0;
+  // Re-assert at delete time: never a user category, never one in use.
+  const res = await Category.deleteMany({
+    userId: owner,
+    _id: { $in: ids.map((id) => new Types.ObjectId(id)) },
+    origin: { $ne: "user" },
+  });
+  if (res.deletedCount > 0) {
+    log.info({ userId, count: res.deletedCount }, "Pruned empty AI categories");
+  }
+  return res.deletedCount;
 }

@@ -18,6 +18,12 @@ export interface Category {
   description: string | null;
   /** Items directly in this category (not counting children). */
   itemCount: number;
+  /**
+   * "ai": created automatically; removed again when it becomes empty (no
+   * items, archived included, and no children). "user": created or edited
+   * (name, emoji, color) by the user; never removed automatically.
+   */
+  origin?: CategoryOrigin;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +37,8 @@ export interface CreateCategoryBody {
 }
 
 export type UpdateCategoryBody = Partial<CreateCategoryBody>;
+
+export type CategoryOrigin = "ai" | "user";
 
 /** Minimal reference used inside items (breadcrumb root → leaf). */
 export interface CategoryRef {

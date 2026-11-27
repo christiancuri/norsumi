@@ -236,7 +236,7 @@ function BrandPanel() {
             <span className="size-[3px] rounded-full bg-white/40" />
             <span>AES-256 encrypted</span>
             <span className="size-[3px] rounded-full bg-white/40" />
-            <span>Open source</span>
+            <span>Zero-retention AI</span>
           </div>
         </div>
       </div>

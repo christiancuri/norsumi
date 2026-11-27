@@ -25,7 +25,10 @@ import {
   Item,
 } from "../../models/Item.model.js";
 import { Worker } from "../../worker/worker.js";
-import { loadCategoryMap } from "../categories/categories.service.js";
+import {
+  loadCategoryMap,
+  pruneEmptyAiCategories,
+} from "../categories/categories.service.js";
 import { domainOf } from "../links/page.js";
 import { consumeAiBudget } from "../usage/ai-budget.js";
 import { getUserDek } from "../users/user-keys.js";
@@ -392,6 +395,13 @@ export async function update(
   ) {
     void reembed(doc._id.toString());
   }
+  // Moving an item can leave its previous AI category empty.
+  if (
+    body.categoryId !== undefined &&
+    String(current.categoryId ?? "") !== String(doc.categoryId ?? "")
+  ) {
+    await pruneEmptyAiCategories(userId);
+  }
   return toDto(userId, doc);
 }
 
@@ -399,6 +409,7 @@ export async function remove(userId: string, itemId: string): Promise<void> {
   const current = await findOwned(userId, itemId);
   if (current.image) await deleteItemBlobs(userId, itemId);
   await Item.deleteOne({ _id: current._id, userId: oid(userId) });
+  if (current.categoryId) await pruneEmptyAiCategories(userId);
 }
 
 /** Back to the queue; an explicit reprocess overwrites user edits. */

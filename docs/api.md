@@ -91,6 +91,12 @@ Self-host friendly: no email provider required; Google is optional.
   user (case-insensitive) → 409.
 - Deleting a root deletes its children; items in deleted categories become
   uncategorized (`categoryId: null`).
+- `origin`: `"ai"` for categories the AI created, `"user"` for ones created
+  via `POST /api/categories` or whose name, emoji or color the user edited.
+  AI categories are deleted automatically once empty (no items, archived
+  included, and no children; then their parent is re-checked) after an
+  item is deleted, moved or reprocessed into another category. User
+  categories are never removed automatically.
 
 ## Items
 

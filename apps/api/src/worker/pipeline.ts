@@ -4,6 +4,7 @@ import { decryptBlob } from "../infra/crypto.js";
 import { createLogger } from "../infra/logger.js";
 import { BlockedUrlError } from "../infra/safe-fetch.js";
 import { blobKey, getBlob } from "../infra/storage.js";
+import { Category } from "../models/Category.model.js";
 import { type EditableAiField, Item } from "../models/Item.model.js";
 import {
   type AiUsage,
@@ -13,7 +14,11 @@ import {
   analyzeNote,
 } from "../modules/ai/analyze.js";
 import { embed } from "../modules/ai/openrouter.js";
-import { resolveAiPath } from "../modules/categories/categories.service.js";
+import {
+  type AiCategorySuggestion,
+  pruneEmptyAiCategories,
+  resolveAiPath,
+} from "../modules/categories/categories.service.js";
 import {
   applyFixedRoot,
   fixedRoot,
@@ -171,6 +176,7 @@ export async function processItem(
     analysis.source ??
     (item.kind === "link" ? (item.link?.domain ?? null) : null);
   set.entities = analysis.entities;
+  let aiPath: AiCategorySuggestion[] | null = null;
   // The account may have been deleted while the AI ran: write nothing
   // (in particular, no categories that would outlive the purge).
   if (!(await userExists(userId))) return { written: false, usage };
@@ -179,6 +185,7 @@ export async function processItem(
     const path = root
       ? applyFixedRoot(root, analysis.categoryPath)
       : analysis.categoryPath;
+    aiPath = path;
     const leaf = await resolveAiPath(userId, path);
     set.categoryId = leaf ? new Types.ObjectId(leaf) : null;
   }
@@ -217,5 +224,36 @@ export async function processItem(
       },
     },
   );
-  return { written: res.modifiedCount === 1, usage };
+  const written = res.modifiedCount === 1;
+  if (written) await settleCategories(userId, item, set, aiPath);
+  return { written, usage };
+}
+
+/**
+ * After the write: a concurrent prune (another item of this user deleted
+ * or moved) may have removed the category we just created while it was
+ * still empty — re-resolve it. Then, if reprocessing moved the item, its
+ * previous AI category may be empty now.
+ */
+async function settleCategories(
+  userId: string,
+  item: ItemDoc,
+  set: Record<string, unknown>,
+  aiPath: AiCategorySuggestion[] | null,
+): Promise<void> {
+  const leaf = set.categoryId as Types.ObjectId | null | undefined;
+  if (leaf && aiPath && !(await Category.exists({ _id: leaf }))) {
+    const again = await resolveAiPath(userId, aiPath);
+    await Item.updateOne(
+      { _id: item._id },
+      { $set: { categoryId: again ? new Types.ObjectId(again) : null } },
+    );
+  }
+  if (
+    leaf !== undefined &&
+    item.categoryId &&
+    String(item.categoryId) !== String(leaf ?? "")
+  ) {
+    await pruneEmptyAiCategories(userId);
+  }
 }

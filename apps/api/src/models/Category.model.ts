@@ -1,4 +1,8 @@
-import { CATEGORY_COLORS, type CategoryColor } from "@norsumi/common";
+import {
+  CATEGORY_COLORS,
+  type CategoryColor,
+  type CategoryOrigin,
+} from "@norsumi/common";
 import {
   getModelForClass,
   index,
@@ -37,8 +41,9 @@ export class ICategory extends TimeStamps {
   @prop({ type: String, default: null })
   public description?: string | null;
 
-  @prop({ type: String, required: true, enum: ["ai", "user"] })
-  public createdBy!: "ai" | "user";
+  /** "ai" categories are pruned when empty; "user" ones stay. */
+  @prop({ type: String, required: true, enum: ["ai", "user"], default: "ai" })
+  public origin!: CategoryOrigin;
 }
 
 export const Category = getModelForClass(ICategory);

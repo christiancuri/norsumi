@@ -121,7 +121,7 @@ export function Hero() {
           <Dot />
           <span>AGPL-3.0</span>
           <Dot />
-          <span>Open source</span>
+          <span>Zero-retention AI</span>
           <Dot />
           <span>Encrypted at rest</span>
         </motion.div>
