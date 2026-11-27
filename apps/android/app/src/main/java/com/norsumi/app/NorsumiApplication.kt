@@ -9,6 +9,9 @@ import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.norsumi.app.capture.Notifications
 import kotlinx.coroutines.launch
 
@@ -20,6 +23,12 @@ class NorsumiApplication : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         container = AppContainer(this)
         Notifications.createChannels(this)
+        // Coming back to the app: anything may have changed (processing finished, edits on the web).
+        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                if (container.session.isSignedIn || container.settings.current.demoMode) container.store.invalidateAll()
+            }
+        })
         container.scope.launch {
             container.session.awaitReady()
             if (container.settings.current.autoCapture && container.session.isSignedIn) container.scheduler.arm()

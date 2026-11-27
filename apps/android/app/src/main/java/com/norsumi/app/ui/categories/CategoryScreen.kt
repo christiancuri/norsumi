@@ -26,7 +26,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -54,6 +57,7 @@ import com.norsumi.app.ui.library.ItemsViewModel
 import com.norsumi.app.ui.theme.NorsumiTheme
 import com.norsumi.app.ui.theme.categoryChipColors
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryScreen(id: String, onBack: () -> Unit, onOpenItem: (String) -> Unit, onOpenCategory: (String) -> Unit) {
     val container = LocalContainer.current
@@ -65,12 +69,28 @@ fun CategoryScreen(id: String, onBack: () -> Unit, onOpenItem: (String) -> Unit,
     var editing by remember { mutableStateOf<Category?>(null) }
 
     val category = cats.all.firstOrNull { it.id == id }
+    val meta by container.store.meta.collectAsStateWithLifecycle()
+    // Deleted here, elsewhere, or auto-removed by the server once empty: leave gracefully. Only trust
+    // "missing" after a fresh fetch, since the category may be newer than the cached tree.
+    var verified by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        container.store.refreshMetaNow()
+        verified = true
+    }
+    var left by remember { mutableStateOf(false) }
+    LaunchedEffect(verified, meta.loaded, category == null) {
+        if (verified && meta.loaded && category == null && !left) {
+            left = true
+            onBack()
+        }
+    }
     val parent = cats.all.firstOrNull { it.id == category?.parentId }
     val children = cats.all.filter { it.parentId == id }.sortedBy { it.name.lowercase() }
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     Box(Modifier.fillMaxSize().background(colors.background)) {
+        PullToRefreshBox(isRefreshing = items.refreshing, onRefresh = itemsVm::refresh, modifier = Modifier.fillMaxSize()) {
         ItemGrid(
             items = items.items,
             onOpen = { onOpenItem(it.id) },
@@ -135,6 +155,7 @@ fun CategoryScreen(id: String, onBack: () -> Unit, onOpenItem: (String) -> Unit,
                 }
             }
         }
+        }
         // Floating glass top bar.
         Row(
             Modifier.fillMaxWidth().background(colors.background.copy(alpha = 0.9f)).statusBarsPadding().padding(horizontal = 4.dp, vertical = 4.dp),
@@ -150,7 +171,7 @@ fun CategoryScreen(id: String, onBack: () -> Unit, onOpenItem: (String) -> Unit,
             cat,
             onDismiss = { editing = null },
             onSave = { catsVm.update(cat.id, it); editing = null },
-            onDelete = { catsVm.delete(cat.id); editing = null; onBack() },
+            onDelete = { catsVm.delete(cat.id); editing = null },
         )
     }
 }

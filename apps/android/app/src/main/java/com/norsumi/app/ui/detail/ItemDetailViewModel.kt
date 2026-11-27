@@ -13,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -26,6 +27,7 @@ data class DetailState(
     val note: String? = null,
     val categories: List<Category> = emptyList(),
     val deleted: Boolean = false,
+    val refreshing: Boolean = false,
 )
 
 class ItemDetailViewModel(private val container: AppContainer, private val id: String) : ViewModel() {
@@ -33,15 +35,18 @@ class ItemDetailViewModel(private val container: AppContainer, private val id: S
     val state: StateFlow<DetailState> = _state.asStateFlow()
     private val saveJobs = mutableMapOf<String, Job>()
     private val repo get() = container.library
+    private val store = container.store
 
     init {
         viewModelScope.launch { load() }
-        viewModelScope.launch { runCatching { repo.categories() }.onSuccess { c -> _state.update { it.copy(categories = c) } } }
+        // The category picker reads the shared tree.
+        viewModelScope.launch { store.meta.collect { m -> _state.update { it.copy(categories = m.categories) } } }
         viewModelScope.launch {
-            repo.changes.collect { change ->
+            store.changes.collect { change ->
                 if (change is LibraryChange.Updated && change.item.id == id) _state.update { it.copy(item = change.item) }
             }
         }
+        viewModelScope.launch { store.version.drop(1).collect { load() } }
         viewModelScope.launch {
             while (isActive) {
                 delay(3000)
@@ -50,9 +55,22 @@ class ItemDetailViewModel(private val container: AppContainer, private val id: S
         }
     }
 
+    /** Pull-to-refresh. */
+    fun refresh() {
+        viewModelScope.launch {
+            _state.update { it.copy(refreshing = true) }
+            load()
+            store.refreshMeta()
+            _state.update { it.copy(refreshing = false) }
+        }
+    }
+
     private suspend fun load() {
         runCatching { repo.item(id) }
-            .onSuccess { item -> _state.update { it.copy(item = item, error = null) } }
+            .onSuccess { item ->
+                store.onItemsSeen(listOf(item))
+                _state.update { it.copy(item = item, error = null) }
+            }
             .onFailure { e -> _state.update { it.copy(error = e.message) } }
     }
 
@@ -110,11 +128,10 @@ class ItemDetailViewModel(private val container: AppContainer, private val id: S
         }
     }
 
+    /** Optimistic: leave the screen at once; [store] rolls back and reports if the server refuses. */
     fun delete() {
-        viewModelScope.launch {
-            runCatching { repo.delete(id) }
-                .onSuccess { _state.update { it.copy(deleted = true) } }
-                .onFailure { e -> _state.update { it.copy(error = e.message) } }
-        }
+        val item = _state.value.item ?: return
+        _state.update { it.copy(deleted = true) }
+        container.scope.launch { store.delete(item) }
     }
 }

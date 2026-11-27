@@ -26,8 +26,8 @@ android {
         applicationId = "com.norsumi.app"
         minSdk = 29
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
         buildConfigField("String", "DEFAULT_SERVER_URL", "\"https://norsumi.com\"")
         buildConfigField("String", "SOURCE_URL", "\"https://github.com/christiancuri/norsumi\"")
     }
@@ -45,6 +45,8 @@ android {
 
     buildTypes {
         debug {
+            // Installs next to the release app (separate data and session), e.g. for local testing.
+            applicationIdSuffix = ".debug"
             // Reaches a local API through `adb reverse tcp:3000 tcp:3000`.
             buildConfigField("String", "DEFAULT_SERVER_URL", "\"http://localhost:3000\"")
         }

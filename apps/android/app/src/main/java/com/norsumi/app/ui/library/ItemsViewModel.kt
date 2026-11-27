@@ -12,6 +12,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
@@ -55,7 +56,7 @@ class ItemsViewModel(
     init {
         if (!requireQuery) load(reset = true)
         viewModelScope.launch {
-            container.library.changes.collect { change ->
+            container.store.changes.collect { change ->
                 when (change) {
                     is LibraryChange.Updated -> _state.update { s ->
                         s.copy(items = s.items.map { if (it.id == change.item.id) change.item else it }.filterNot { it.archived && base.archived != true })
@@ -65,6 +66,8 @@ class ItemsViewModel(
                 }
             }
         }
+        // App resumed / tab re-entered / rollback: refetch quietly.
+        viewModelScope.launch { container.store.version.drop(1).collect { silentRefresh() } }
         viewModelScope.launch {
             while (isActive) {
                 delay(3000)
@@ -98,7 +101,10 @@ class ItemsViewModel(
         }
     }
 
+    /** Pull-to-refresh: this list plus categories and stats. */
     fun refresh() {
+        container.store.refreshMeta()
+        if (requireQuery && _state.value.query.isBlank()) return
         _state.update { it.copy(refreshing = true) }
         load(reset = true)
     }
@@ -122,6 +128,7 @@ class ItemsViewModel(
             val page = runCatching { container.library.items(currentQuery(), null) }
                 .onFailure { if (it !is kotlinx.coroutines.CancellationException) android.util.Log.w(TAG, "Refresh failed", it) }
                 .getOrNull() ?: return@launch
+            container.store.onItemsSeen(page.items)
             _state.update { s ->
                 val fresh = page.items.associateBy { it.id }
                 // Keep pages loaded beyond the first one.
@@ -139,6 +146,7 @@ class ItemsViewModel(
         val cursor = if (reset) null else _state.value.nextCursor
         try {
             val page = container.library.items(currentQuery(), cursor)
+            container.store.onItemsSeen(page.items)
             _state.update { s ->
                 s.copy(
                     items = if (reset) page.items else (s.items + page.items).distinctBy { it.id },

@@ -30,6 +30,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import com.norsumi.app.ui.LocalContainer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +64,16 @@ fun HomeScreen(onOpenItem: (String) -> Unit, onOpenCategory: (String) -> Unit, o
     val scope = rememberCoroutineScope()
     val holder = rememberSaveableStateHolder()
     val colors = NorsumiTheme.colors
+    val store = LocalContainer.current.store
+
+    // Returning to a tab shows fresh data (the first composition already loads).
+    var lastTab by rememberSaveable { mutableStateOf(tab) }
+    LaunchedEffect(tab) {
+        if (tab != lastTab) store.invalidateAll()
+        lastTab = tab
+    }
+    // Rollbacks and failed mutations from the shared store.
+    LaunchedEffect(store) { store.errors.collect { snackbar.showSnackbar(it) } }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),

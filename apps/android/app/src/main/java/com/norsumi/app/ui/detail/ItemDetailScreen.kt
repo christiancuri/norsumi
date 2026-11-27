@@ -61,6 +61,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -148,10 +150,14 @@ fun ItemDetailScreen(id: String, onBack: () -> Unit, onOpenCategory: (String) ->
                 }
             },
         ) {
-            Box(Modifier.fillMaxSize().background(ImageStage)) {
+            PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize().background(ImageStage)) {
+            // A one-screen scroll container so pull-to-refresh receives the drag; it never scrolls itself.
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val stageHeight = maxHeight
+                Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 val image = item.image!!
                 Box(
-                    Modifier.fillMaxSize().statusBarsPadding().padding(top = 56.dp, bottom = peek - 8.dp, start = 16.dp, end = 16.dp),
+                    Modifier.fillMaxWidth().height(stageHeight).statusBarsPadding().padding(top = 56.dp, bottom = peek - 8.dp, start = 16.dp, end = 16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Zoomable(Modifier.fillMaxSize()) {
@@ -176,17 +182,21 @@ fun ItemDetailScreen(id: String, onBack: () -> Unit, onOpenCategory: (String) ->
                         }
                     }
                 }
-                TopButtons(onBack = onBack, item = item, onFavorite = vm::toggleFavorite, onDark = true)
+                }
             }
+            }
+            TopButtons(onBack = onBack, item = item, onFavorite = vm::toggleFavorite, onDark = true)
         }
     } else {
         Box(Modifier.fillMaxSize().background(NorsumiTheme.colors.background)) {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
-                when (item.kind) {
-                    ItemKind.Link -> LinkHeader(item)
-                    else -> NoteHeader(item)
+            PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
+                    when (item.kind) {
+                        ItemKind.Link -> LinkHeader(item)
+                        else -> NoteHeader(item)
+                    }
+                    DetailPanel(item, state, vm, onOpenCategory)
                 }
-                DetailPanel(item, state, vm, onOpenCategory)
             }
             TopButtons(onBack = onBack, item = item, onFavorite = vm::toggleFavorite, onDark = item.kind == ItemKind.Link && item.link?.imageUrl != null)
         }

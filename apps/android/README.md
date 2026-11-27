@@ -92,6 +92,28 @@ serializers that the API models and navigation routes need.
   state and its caches.
 - App data is excluded from backups, because the Keystore key can't be restored on another device anyway.
 
+## Keeping screens fresh
+
+`LibraryStore` (`data/repo/LibraryStore.kt`) is the app-wide source of truth for categories and
+stats, and the invalidation bus. Screens don't keep their own copies.
+
+- Every mutation emits a `LibraryChange`: edit, favorite, archive, delete, category CRUD, a note or
+  link created, a share saved, or an upload finished in a worker. The store then refetches
+  categories and stats, and item lists patch themselves or refetch.
+- Lists and the detail screen report the items they fetch. When an item leaves pending/processing,
+  the store refetches categories and stats, because the AI may have just created or filled a
+  category. Lists poll every 3 s while anything is pending.
+- `invalidateAll()` bumps a version that every list and detail screen follows. It runs when the app
+  returns to the foreground (`ProcessLifecycleOwner` ON_START) and when you switch back to a tab.
+- Library, Categories, Category, Search and Item detail all support pull-to-refresh.
+- Deletes are optimistic: the item disappears and counts drop at once. If the server refuses, the
+  store refetches everything and shows a snackbar.
+- A category screen whose category was deleted (by you, elsewhere, or by the server once empty)
+  navigates back.
+
+Debug builds install as `com.norsumi.app.debug` ("norsumi debug"), next to the release app, with
+separate data.
+
 ## Screenshot auto-capture
 
 1. **Trigger.** A one-shot WorkManager job, `ScreenshotTriggerWorker`, has a content-URI trigger on

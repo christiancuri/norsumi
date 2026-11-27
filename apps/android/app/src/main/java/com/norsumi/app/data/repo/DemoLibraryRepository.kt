@@ -14,6 +14,7 @@ import com.norsumi.app.data.model.ItemListResponse
 import com.norsumi.app.data.model.ItemPatch
 import com.norsumi.app.data.model.ItemQuery
 import com.norsumi.app.data.model.ItemStatus
+import com.norsumi.app.data.model.LibraryStats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -97,6 +98,20 @@ class DemoLibraryRepository(context: Context) : BaseLibraryRepository() {
             link = ItemLink(url = url, domain = runCatching { java.net.URI(url).host.removePrefix("www.") }.getOrDefault(url)),
         ),
     )
+
+    override suspend fun stats(): LibraryStats {
+        ensureSeeded()
+        val live = items.filter { !it.archived }
+        return LibraryStats(
+            total = live.size,
+            byKind = live.groupingBy { it.kind.wire }.eachCount(),
+            favorites = live.count { it.favorite },
+            processing = live.count { it.status.isWorking },
+            failed = live.count { it.status == ItemStatus.Failed },
+            uncategorized = live.count { it.categoryId == null },
+            archived = items.count { it.archived },
+        )
+    }
 
     override suspend fun categories(): List<Category> {
         ensureSeeded()

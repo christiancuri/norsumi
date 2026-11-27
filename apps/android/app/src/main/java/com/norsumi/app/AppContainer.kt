@@ -13,6 +13,7 @@ import com.norsumi.app.data.model.AuthSession
 import com.norsumi.app.data.model.User
 import com.norsumi.app.data.repo.DemoLibraryRepository
 import com.norsumi.app.data.repo.LibraryRepository
+import com.norsumi.app.data.repo.LibraryStore
 import com.norsumi.app.data.repo.RemoteLibraryRepository
 import com.norsumi.app.data.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +22,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -47,12 +53,25 @@ class AppContainer(private val app: Application) {
     /** The live repository; demo mode (debug builds only) swaps in seeded content. */
     val library: LibraryRepository get() = if (settings.current.demoMode) demo else remote
 
+    /** Single source of truth for categories/stats + the invalidation bus every screen follows. */
+    val store = LibraryStore({ library }, merge(remote.changes, demo.changes), scope)
+
     val scheduler = CaptureScheduler(app)
     val capture = CaptureEngine(app, settings, session, scheduler)
 
     val authState: StateFlow<AuthState> = combine(session.state, settings.settings) { auth, s ->
         if (s.demoMode) AuthState.SignedIn(DEMO_USER) else auth
     }.stateIn(scope, SharingStarted.Eagerly, AuthState.Loading)
+
+    init {
+        // Switching between demo and a real account swaps the whole library.
+        scope.launch {
+            settings.settings.map { it.demoMode }.distinctUntilChanged().drop(1).collect {
+                store.reset()
+                store.refreshMeta()
+            }
+        }
+    }
 
     suspend fun signIn(session: AuthSession) {
         this.session.onSession(session)
@@ -89,6 +108,7 @@ class AppContainer(private val app: Application) {
     /** Forgets the session and stops all background work. Returns the refresh token, if any. */
     private suspend fun clearLocalSession(): String? {
         val token = session.clear()
+        store.reset()
         WorkManager.getInstance(app).cancelAllWorkByTag(CaptureScheduler.TAG_UPLOAD)
         scheduler.disarm()
         InstantCaptureService.stop(app)

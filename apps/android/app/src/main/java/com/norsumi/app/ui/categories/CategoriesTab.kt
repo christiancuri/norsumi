@@ -26,7 +26,9 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,16 +60,19 @@ import com.norsumi.app.ui.theme.NorsumiTheme
 import com.norsumi.app.ui.theme.categoryChipColors
 import com.norsumi.app.ui.theme.categoryShades
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesTab(bottom: PaddingValues, onOpenCategory: (String) -> Unit) {
     val container = LocalContainer.current
     val vm: CategoriesViewModel = viewModel { CategoriesViewModel(container) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val refreshing by vm.refreshing.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Category?>(null) }
     val colors = NorsumiTheme.colors
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     Box(Modifier.fillMaxSize()) {
+        PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = top + 8.dp, bottom = bottom.calculateBottomPadding() + 96.dp),
@@ -102,6 +107,7 @@ fun CategoriesTab(bottom: PaddingValues, onOpenCategory: (String) -> Unit) {
             items(state.tree, key = { it.category.id }, contentType = { "root" }) { node ->
                 RootCard(node, onClick = { onOpenCategory(node.category.id) }, onLongClick = { editing = node.category })
             }
+        }
         }
         StatusBarScrim()
     }

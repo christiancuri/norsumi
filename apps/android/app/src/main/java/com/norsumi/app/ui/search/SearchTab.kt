@@ -22,7 +22,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,6 +51,7 @@ import com.norsumi.app.ui.components.ItemGrid
 import com.norsumi.app.ui.library.ItemsViewModel
 import com.norsumi.app.ui.theme.NorsumiTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchTab(bottom: PaddingValues, onOpenItem: (String) -> Unit) {
     val container = LocalContainer.current
@@ -90,6 +93,7 @@ fun SearchTab(bottom: PaddingValues, onOpenItem: (String) -> Unit) {
             }
             if (state.query.isNotEmpty()) IconButton(onClick = { vm.setQuery("") }) { Icon(Icons.Outlined.Close, "Clear") }
         }
+        PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = vm::refresh, modifier = Modifier.weight(1f)) {
         ItemGrid(
             items = state.items,
             onOpen = { onOpenItem(it.id) },
@@ -123,6 +127,7 @@ fun SearchTab(bottom: PaddingValues, onOpenItem: (String) -> Unit) {
                     }
                 }
             }
+        }
         }
     }
 }

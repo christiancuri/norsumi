@@ -7,6 +7,7 @@ import com.norsumi.app.data.model.Item
 import com.norsumi.app.data.model.ItemListResponse
 import com.norsumi.app.data.model.ItemPatch
 import com.norsumi.app.data.model.ItemQuery
+import com.norsumi.app.data.model.LibraryStats
 import java.time.Instant
 
 class RemoteLibraryRepository(private val api: NorsumiApi) : BaseLibraryRepository() {
@@ -29,6 +30,8 @@ class RemoteLibraryRepository(private val api: NorsumiApi) : BaseLibraryReposito
 
     override suspend fun createLink(url: String, text: String?): Item =
         api.createLink(url, text, Instant.now().toString()).also { emit(LibraryChange.Created) }
+
+    override suspend fun stats(): LibraryStats = api.stats()
 
     override suspend fun categories(): List<Category> = api.categories()
 

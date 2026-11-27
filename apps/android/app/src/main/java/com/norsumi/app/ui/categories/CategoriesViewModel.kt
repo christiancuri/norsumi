@@ -7,11 +7,12 @@ import com.norsumi.app.data.model.Category
 import com.norsumi.app.data.model.CategoryNode
 import com.norsumi.app.data.model.CategoryPatch
 import com.norsumi.app.data.model.toTree
-import com.norsumi.app.data.repo.LibraryChange
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class CategoriesState(
@@ -21,32 +22,35 @@ data class CategoriesState(
     val error: String? = null,
 )
 
+/** A view over [com.norsumi.app.data.repo.LibraryStore.meta]; holds no data of its own. */
 class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
-    private val _state = MutableStateFlow(CategoriesState())
-    val state: StateFlow<CategoriesState> = _state.asStateFlow()
+    private val store = container.store
+
+    val state: StateFlow<CategoriesState> = store.meta
+        .map { m -> CategoriesState(m.categories, m.categories.toTree(), loading = !m.loaded && m.error == null, error = m.error.takeIf { !m.loaded }) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, CategoriesState())
+
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
     init {
-        refresh()
-        viewModelScope.launch {
-            container.library.changes.collect { if (it !is LibraryChange.Deleted) refresh() }
-        }
+        store.refreshMeta()
     }
 
+    /** Pull-to-refresh. */
     fun refresh() {
         viewModelScope.launch {
-            runCatching { container.library.categories() }
-                .onSuccess { list -> _state.update { CategoriesState(list, list.toTree(), loading = false) } }
-                .onFailure { e -> _state.update { it.copy(loading = false, error = e.message) } }
+            _refreshing.value = true
+            store.refreshMetaNow()
+            _refreshing.value = false
         }
     }
 
-    fun update(id: String, patch: CategoryPatch, onError: (String) -> Unit = {}) {
-        viewModelScope.launch {
-            runCatching { container.library.updateCategory(id, patch) }.onFailure { onError(it.message ?: "Couldn't save") }
-        }
+    fun update(id: String, patch: CategoryPatch) {
+        viewModelScope.launch { runCatching { store.updateCategory(id, patch) } }
     }
 
     fun delete(id: String) {
-        viewModelScope.launch { runCatching { container.library.deleteCategory(id) } }
+        viewModelScope.launch { store.deleteCategory(id) }
     }
 }
