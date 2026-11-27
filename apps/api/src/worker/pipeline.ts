@@ -7,13 +7,10 @@ import { blobKey, getBlob } from "../infra/storage.js";
 import { Category } from "../models/Category.model.js";
 import { type EditableAiField, Item } from "../models/Item.model.js";
 import {
+  AiService,
   type AiUsage,
   type AnalysisResult,
-  analyzeImage,
-  analyzeLink,
-  analyzeNote,
-} from "../modules/ai/analyze.js";
-import { embed } from "../modules/ai/openrouter.js";
+} from "../modules/ai/ai.service.js";
 import {
   type AiCategorySuggestion,
   pruneEmptyAiCategories,
@@ -25,7 +22,7 @@ import {
 } from "../modules/categories/fixed-roots.js";
 import { detectImageMime, toVisionJpeg } from "../modules/items/image.js";
 import type { ItemDoc } from "../modules/items/items.mapper.js";
-import { embeddingInput } from "../modules/items/search.service.js";
+import { SearchService } from "../modules/items/search.service.js";
 import { toFloat32Buffer } from "../modules/items/vector.js";
 import {
   fetchPage,
@@ -64,7 +61,7 @@ async function processImageItem(
         : "The image could not be decoded",
     );
   }
-  return analyzeImage(
+  return AiService.analyzeImage(
     userId,
     item.kind as "screenshot" | "image",
     jpeg,
@@ -99,7 +96,7 @@ async function processLinkItem(
       "Link fetch failed",
     );
   }
-  const result = await analyzeLink(userId, {
+  const result = await AiService.analyzeLink(userId, {
     kind: "link",
     capturedAt: item.capturedAt,
     url: page?.url ?? link.url,
@@ -152,7 +149,7 @@ export async function processItem(
     }
   } else {
     // Note body is the content (`text`); older docs kept it in `note`.
-    run = await analyzeNote(
+    run = await AiService.analyzeNote(
       userId,
       item.text ?? item.note ?? "",
       item.capturedAt,
@@ -192,8 +189,8 @@ export async function processItem(
 
   // Embedding is best effort: keyword search still works without it.
   try {
-    const embedding = await embed(
-      embeddingInput({
+    const embedding = await AiService.embed(
+      SearchService.embeddingInput({
         title: (edited.has("title") ? item.title : analysis.title) ?? "",
         summary:
           (edited.has("summary") ? item.summary : analysis.summary) ?? "",

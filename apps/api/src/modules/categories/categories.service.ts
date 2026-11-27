@@ -168,7 +168,7 @@ async function insert(
       name,
       nameKey: nameKey(name),
       slug,
-      emoji: cleanEmoji(fields.emoji),
+      emoji: cleanEmoji(fields.emoji, name),
       color: cleanColor(fields.color, name),
       description: fields.description?.trim().slice(0, 200) || null,
       origin: fields.origin,

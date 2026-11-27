@@ -2,7 +2,7 @@ import { type QueryFilter, Types } from "mongoose";
 
 import { createLogger } from "../../infra/logger.js";
 import { type IItem, Item } from "../../models/Item.model.js";
-import { embed } from "../ai/openrouter.js";
+import { AiService } from "../ai/ai.service.js";
 import { ITEM_PUBLIC_PROJECTION, type ItemDoc } from "./items.mapper.js";
 import {
   cosine,
@@ -56,7 +56,7 @@ export async function reembed(itemId: string): Promise<void> {
       ITEM_PUBLIC_PROJECTION,
     ).lean<ItemDoc>();
     if (!doc) return;
-    const { vector } = await embed(embeddingInput(doc), "reembed");
+    const { vector } = await AiService.embed(embeddingInput(doc), "reembed");
     await Item.updateOne(
       { _id: doc._id },
       { $set: { embedding: toFloat32Buffer(vector) } },
@@ -121,7 +121,11 @@ async function queryEmbedding(q: string): Promise<number[] | null> {
   if (cached && Date.now() - cached.at < QUERY_CACHE_TTL_MS)
     return cached.vector;
   try {
-    const { vector } = await embed(q, "search", QUERY_EMBED_TIMEOUT_MS);
+    const { vector } = await AiService.embed(q, "search", {
+      timeoutMs: QUERY_EMBED_TIMEOUT_MS,
+      // Interactive: no SDK retry, fall back to keyword search instead.
+      maxRetries: 0,
+    });
     if (queryCache.size >= QUERY_CACHE_LIMIT) {
       const oldest = queryCache.keys().next().value;
       if (oldest !== undefined) queryCache.delete(oldest);
@@ -196,3 +200,5 @@ export async function searchItems(
   const byId = new Map(docs.map((d) => [d._id.toString(), d]));
   return ranked.flatMap((r) => byId.get(r.id) ?? []);
 }
+
+export * as SearchService from "./search.service.js";

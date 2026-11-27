@@ -25,14 +25,46 @@ export function slugify(name: string): string {
 }
 
 const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
-const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+/**
+ * A grapheme cluster is an emoji when it holds a pictographic code point
+ * (covers ZWJ and variation-selector sequences: ✖️ 👨‍💻 🏳️‍🌈), a flag
+ * (regional indicators) or a keycap (1️⃣). Look-alike letters such as 𝕏
+ * (mathematical double-struck X) are not emoji.
+ */
+const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20e3/u;
 
-/** First grapheme if it is an emoji, else the default. */
-export function cleanEmoji(value: string | null | undefined): string {
-  if (!value) return DEFAULT_EMOJI;
-  const first = segmenter.segment(value.trim())[Symbol.iterator]().next();
-  const grapheme = first.done ? "" : first.value.segment;
-  return grapheme && EMOJI.test(grapheme) ? grapheme : DEFAULT_EMOJI;
+/** Emoji for well-known sources when the suggested one is unusable. */
+const SOURCE_EMOJI: Record<string, string> = {
+  x: "✖️",
+  twitter: "✖️",
+  instagram: "📸",
+  youtube: "▶️",
+  whatsapp: "💬",
+  web: "🌐",
+  notes: "📝",
+  linkedin: "💼",
+  tiktok: "🎵",
+  reddit: "👽",
+  github: "🐙",
+};
+
+/** Fallback emoji for a category name: its source's, else the folder. */
+export function fallbackEmoji(name: string | null | undefined): string {
+  return (name && SOURCE_EMOJI[nameKey(name)]) || DEFAULT_EMOJI;
+}
+
+/**
+ * The first emoji grapheme in `value` (so "🐦 X" and "X 🐦" both give 🐦),
+ * else the fallback for `name`, else 📁.
+ */
+export function cleanEmoji(
+  value: string | null | undefined,
+  name?: string | null,
+): string {
+  for (const { segment } of segmenter.segment((value ?? "").trim())) {
+    if (EMOJI.test(segment)) return segment;
+  }
+  return fallbackEmoji(name);
 }
 
 /** Stable palette pick for categories created without a color. */

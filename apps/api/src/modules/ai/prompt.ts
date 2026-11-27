@@ -61,7 +61,7 @@ categoryPath — the most important field
 - Do NOT force an item into an existing category about a different topic just because it exists. If the root fits but no existing topic fits, reuse the root (with its id) and create a new topic child (id null): a recipe goes to a new "Recipes", not into "Restaurants"; a job post goes to "Jobs", not "Programming".
 - A topic can be reused only under the same root.
 - When creating (id null): short (1–3 words), Title Case, general enough to hold many future items, plural for collections ("Restaurants", not "Pizza place downtown"). Platform roots use the platform's name. Category names are ALWAYS in English, whatever the content's language ("Sports", never "Esportes" or "Deportes").
-- For new categories also pick one emoji that represents it, a color from [${CATEGORY_COLORS.join(", ")}] (fitting, and varied across categories), and a one-line description of what belongs there. For reused categories repeat their emoji and keep the description short.
+- For new categories also pick one real emoji that represents it (an emoji character, never a letter or look-alike symbol such as "𝕏"; for X use "✖️"), a color from [${CATEGORY_COLORS.join(", ")}] (fitting, and varied across categories), and a one-line description of what belongs there. For reused categories repeat their emoji and keep the description short.
 - Never create a category for a single item's specific detail (no "Joe's Pizza" category).
 
 tags

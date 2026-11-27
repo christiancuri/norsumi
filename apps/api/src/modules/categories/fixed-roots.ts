@@ -22,7 +22,7 @@ const PLATFORMS: Array<{ hosts: string[]; root: RootSpec }> = [
     hosts: ["x.com", "twitter.com"],
     root: {
       name: "X",
-      emoji: "💬",
+      emoji: "✖️",
       color: "slate",
       description: "Posts and threads from X",
     },

@@ -3,6 +3,9 @@ packages:
   - "packages/*"
 
 catalogs:
+  ai:
+    ai: "^7.0.183"
+    "@openrouter/ai-sdk-provider": "^3.1.0"
   devDeps:
     "@types/node": "^26.6.11"
     tsdown: "^0.23.7"

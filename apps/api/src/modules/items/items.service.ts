@@ -40,7 +40,7 @@ import {
   toItemDto,
 } from "./items.mapper.js";
 import type { ListItemsQuery, UpdateItemBody } from "./items.schemas.js";
-import { reembed, searchItems } from "./search.service.js";
+import { SearchService } from "./search.service.js";
 
 const log = createLogger("items");
 
@@ -124,7 +124,12 @@ export async function list(
   const categories = await loadCategoryMap(userId);
 
   if (query.q) {
-    const docs = await searchItems(userId, filter, query.q, query.limit);
+    const docs = await SearchService.searchItems(
+      userId,
+      filter,
+      query.q,
+      query.limit,
+    );
     return {
       items: docs.map((d) => toItemDto(d, categories)),
       nextCursor: null,
@@ -393,7 +398,7 @@ export async function update(
     doc.status === "ready" &&
     EMBEDDED_FIELDS.some((f) => body[f] !== undefined)
   ) {
-    void reembed(doc._id.toString());
+    void SearchService.reembed(doc._id.toString());
   }
   // Moving an item can leave its previous AI category empty.
   if (

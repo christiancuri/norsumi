@@ -45,7 +45,8 @@ src/
     items/              upload (magic bytes, sha256 dedupe, sharp/HEIC),
                         link/note, list (cursor), hybrid search, stats
     media/              signed, decrypting media route
-    ai/                 prompt, strict JSON schema, OpenRouter client
+    ai/                 prompt, zod output schema, Vercel AI SDK + OpenRouter
+                        provider (ai.client: settings, fallback, embeddings)
     links/              page fetch + OpenGraph/readable text extraction
   worker/               queue over `items` (claim, retry, stale recovery)
 ```
