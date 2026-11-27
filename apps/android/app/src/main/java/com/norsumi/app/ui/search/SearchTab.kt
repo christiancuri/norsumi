@@ -98,6 +98,7 @@ fun SearchTab(bottom: PaddingValues, onOpenItem: (String) -> Unit) {
             items = state.items,
             onOpen = { onOpenItem(it.id) },
             onLoadMore = vm::loadMore,
+            loading = state.loading && state.query.isNotBlank(),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = bottom.calculateBottomPadding() + 24.dp),
         ) {
             if (state.query.isBlank()) {

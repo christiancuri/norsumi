@@ -88,6 +88,8 @@ data class Category(
     val color: String = "slate",
     val description: String? = null,
     val itemCount: Int = 0,
+    /** "ai": auto-created, removed by the server once empty (no items, no children). "user": kept. */
+    val origin: String? = null,
     val createdAt: String = "",
     val updatedAt: String = "",
 )
@@ -198,6 +200,8 @@ data class ItemQuery(
     val favorite: Boolean? = null,
     val archived: Boolean? = null,
     val categoryId: String? = null,
+    /** With [categoryId]: include items of its child topics (root pages show everything below). */
+    val includeChildren: Boolean = true,
     val q: String? = null,
     val limit: Int = 40,
 )
@@ -232,6 +236,14 @@ sealed interface Field<out T> {
 data class CategoryNode(val category: Category, val children: List<Category>) {
     val totalCount: Int get() = category.itemCount + children.sumOf { it.itemCount }
 }
+
+/** Items in [id] plus its child topics: what a category page lists and counts. */
+fun List<Category>.totalCount(id: String): Int =
+    filter { it.id == id || it.parentId == id }.sumOf { it.itemCount }
+
+/** True when the server will prune this AI category once it has no items left. */
+fun Category.prunableWhenEmpty(all: List<Category>): Boolean =
+    origin == "ai" && itemCount <= 0 && all.none { it.parentId == id }
 
 fun List<Category>.toTree(): List<CategoryNode> {
     val byParent = groupBy { it.parentId }

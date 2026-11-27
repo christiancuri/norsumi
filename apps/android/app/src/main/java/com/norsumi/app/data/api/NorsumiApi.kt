@@ -116,18 +116,8 @@ class NorsumiApi(
 
     // --- Items --------------------------------------------------------------------------------
 
-    suspend fun items(query: ItemQuery, cursor: String?): ItemListResponse {
-        val u = url("api/items").apply {
-            if (query.kinds.isNotEmpty()) addQueryParameter("kind", query.kinds.joinToString(",") { it.wire })
-            query.favorite?.let { addQueryParameter("favorite", it.toString()) }
-            query.archived?.let { addQueryParameter("archived", it.toString()) }
-            query.categoryId?.let { addQueryParameter("categoryId", it) }
-            query.q?.takeIf { it.isNotBlank() }?.let { addQueryParameter("q", it) }
-            cursor?.let { addQueryParameter("cursor", it) }
-            addQueryParameter("limit", query.limit.toString())
-        }.build()
-        return get(u, ItemListResponse.serializer())
-    }
+    suspend fun items(query: ItemQuery, cursor: String?): ItemListResponse =
+        get(itemsUrl(serverUrl(), query, cursor), ItemListResponse.serializer())
 
     suspend fun item(id: String): Item = get(url("api/items/$id").build(), Item.serializer())
 
@@ -238,6 +228,22 @@ class NorsumiApi(
         RefreshResult.Unavailable
     }
 }
+
+/** `GET /api/items` URL for [query]. Pure, so it is unit tested. */
+fun itemsUrl(base: String, query: ItemQuery, cursor: String?): HttpUrl =
+    "$base/".toHttpUrl().newBuilder().addPathSegments("api/items").apply {
+        if (query.kinds.isNotEmpty()) addQueryParameter("kind", query.kinds.joinToString(",") { it.wire })
+        query.favorite?.let { addQueryParameter("favorite", it.toString()) }
+        query.archived?.let { addQueryParameter("archived", it.toString()) }
+        query.categoryId?.let {
+            addQueryParameter("categoryId", it)
+            // Explicit even though it is the server default: root pages must include child topics.
+            addQueryParameter("includeChildren", query.includeChildren.toString())
+        }
+        query.q?.takeIf { it.isNotBlank() }?.let { addQueryParameter("q", it) }
+        cursor?.let { addQueryParameter("cursor", it) }
+        addQueryParameter("limit", query.limit.toString())
+    }.build()
 
 internal fun <T> Response.decode(de: DeserializationStrategy<T>): T {
     val text = body.string()

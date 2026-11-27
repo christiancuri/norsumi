@@ -5,6 +5,7 @@ import com.norsumi.app.data.model.CategoryPatch
 import com.norsumi.app.data.model.Item
 import com.norsumi.app.data.model.ItemPatch
 import com.norsumi.app.data.model.LibraryStats
+import com.norsumi.app.data.model.prunableWhenEmpty
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -41,10 +43,16 @@ data class LibraryMeta(
  */
 class LibraryStore(
     private val repo: () -> LibraryRepository,
-    /** Change events from every repository (remote + demo), for screens that patch lists locally. */
-    val changes: Flow<LibraryChange>,
+    /** Change events from every repository (remote + demo); each one refetches [meta]. */
+    repoChanges: Flow<LibraryChange>,
     private val scope: CoroutineScope,
 ) {
+    /** Optimistic events for lists only: they must not trigger a refetch that races the request. */
+    private val local = MutableSharedFlow<LibraryChange>(extraBufferCapacity = 16)
+
+    /** Everything lists should apply: repository changes plus optimistic ones. */
+    val changes: Flow<LibraryChange> = merge(repoChanges, local)
+
     private val _meta = MutableStateFlow(LibraryMeta())
     val meta: StateFlow<LibraryMeta> = _meta.asStateFlow()
 
@@ -55,10 +63,14 @@ class LibraryStore(
     val errors: SharedFlow<String> = _errors.asSharedFlow()
 
     private val working = mutableSetOf<String>()
+
+    /** Deletes in flight (item id → its category). Refetches that race them re-apply them. */
+    private val pendingDeletes = mutableMapOf<String, String?>()
     private val metaMutex = Mutex()
 
     init {
-        scope.launch { changes.collect { refreshMeta() } }
+        // Deletes go through [delete], which refreshes itself once the in-flight bookkeeping is done.
+        scope.launch { repoChanges.collect { if (it !is LibraryChange.Deleted) refreshMeta() } }
     }
 
     /** Refetches categories + stats in the background. */
@@ -69,8 +81,14 @@ class LibraryStore(
     /** Refetches categories + stats; concurrent calls are serialized so the latest result wins. */
     suspend fun refreshMetaNow() = metaMutex.withLock {
         try {
-            val categories = repo().categories()
-            val stats = runCatching { repo().stats() }.getOrNull()
+            val inFlight = synchronized(pendingDeletes) { pendingDeletes.values.toList() }
+            var categories = repo().categories()
+            var stats = runCatching { repo().stats() }.getOrNull()
+            // The server may not have committed these yet: keep the optimistic view.
+            for (categoryId in inFlight) {
+                categories = applyDelete(categories, categoryId)
+                stats = stats?.let { it.copy(total = (it.total - 1).coerceAtLeast(0)) }
+            }
             _meta.update { it.copy(categories = categories, stats = stats ?: it.stats, loaded = true, error = null) }
         } catch (e: CancellationException) {
             throw e
@@ -111,24 +129,49 @@ class LibraryStore(
 
     suspend fun delete(item: Item): Boolean {
         val repo = repo()
-        // Optimistic: lists drop it now, counts follow.
-        repo.emit(LibraryChange.Deleted(item.id))
+        // Optimistic: lists drop it now, counts follow. The repository's own event after a
+        // successful delete triggers the authoritative refetch.
+        local.tryEmit(LibraryChange.Deleted(item.id))
+        synchronized(pendingDeletes) { pendingDeletes[item.id] = item.categoryId }
         _meta.update { m ->
             m.copy(
-                categories = m.categories.map { c -> if (c.id == item.categoryId) c.copy(itemCount = (c.itemCount - 1).coerceAtLeast(0)) else c },
+                categories = applyDelete(m.categories, item.categoryId),
                 stats = m.stats?.let { s -> s.copy(total = (s.total - 1).coerceAtLeast(0)) },
             )
         }
-        return try {
+        val ok = try {
             repo.delete(item.id)
             true
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             _errors.tryEmit("Couldn't delete: ${e.message ?: "error"}")
-            invalidateAll() // rollback: the item comes back with the refetch
             false
+        } finally {
+            synchronized(pendingDeletes) { pendingDeletes.remove(item.id) }
         }
+        // Authoritative refetch now that the server has answered; on failure it also rolls back.
+        if (ok) refreshMeta() else invalidateAll()
+        return ok
+    }
+
+    /** One item fewer in [categoryId], pruning it (and its parent) when the server would. */
+    private fun applyDelete(categories: List<Category>, categoryId: String?): List<Category> {
+        val counted = categories.map { c -> if (c.id == categoryId) c.copy(itemCount = (c.itemCount - 1).coerceAtLeast(0)) else c }
+        return pruneEmptyAi(counted, categoryId)
+    }
+
+    /**
+     * Mirrors the server's pruning so screens react at once: an AI category left with no items and no
+     * children disappears, and so does its AI parent if that leaves it empty too.
+     */
+    private fun pruneEmptyAi(categories: List<Category>, leafId: String?): List<Category> {
+        val leaf = categories.firstOrNull { it.id == leafId } ?: return categories
+        if (!leaf.prunableWhenEmpty(categories)) return categories
+        var result = categories.filterNot { it.id == leaf.id }
+        val parent = result.firstOrNull { it.id == leaf.parentId }
+        if (parent != null && parent.prunableWhenEmpty(result)) result = result.filterNot { it.id == parent.id }
+        return result
     }
 
     suspend fun updateCategory(id: String, patch: CategoryPatch): Category = repo().updateCategory(id, patch)

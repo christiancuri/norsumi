@@ -34,6 +34,8 @@ fun ItemGrid(
     state: LazyStaggeredGridState = rememberLazyStaggeredGridState(),
     contentPadding: PaddingValues = PaddingValues(12.dp),
     onLoadMore: (() -> Unit)? = null,
+    /** First page still loading: show skeleton cards instead of an empty grid. */
+    loading: Boolean = false,
     header: LazyStaggeredGridScope.() -> Unit = {},
 ) {
     if (onLoadMore != null) {
@@ -57,6 +59,11 @@ fun ItemGrid(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         header()
+        if (loading && items.isEmpty()) {
+            items(SkeletonHeights.size, key = { "skeleton-$it" }, contentType = { "skeleton" }) { i ->
+                SkeletonCard(SkeletonHeights[i])
+            }
+        }
         items(items, key = { it.id }, contentType = { it.kind }) { item ->
             ItemCard(item, onClick = { onOpen(item) }, modifier = Modifier.appear(item.id).animateItem())
         }

@@ -121,7 +121,9 @@ class ItemsViewModel(
         loadJob = viewModelScope.launch { fetch(reset) }
     }
 
-    /** Refetches the first page and keeps already-loaded later pages. */
+    /** Refetches the first page quietly (no spinner); keeps already-loaded later pages. */
+    fun refreshQuietly() = silentRefresh()
+
     private fun silentRefresh() {
         if (requireQuery && _state.value.query.isBlank()) return
         viewModelScope.launch {

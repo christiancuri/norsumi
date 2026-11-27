@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.norsumi.app.MainActivity
+import com.norsumi.app.R
 import com.norsumi.app.NorsumiApplication
 import com.norsumi.app.capture.UploadJob
 import com.norsumi.app.data.repo.LibraryChange
@@ -109,7 +110,7 @@ class ShareActivity : ComponentActivity() {
                     val uris = imageUris(intent)
                     require(uris.isNotEmpty()) { "Nothing to save" }
                     if (demo) {
-                        "${uris.size} image${if (uris.size == 1) "" else "s"}"
+                        resources.getQuantityString(R.plurals.images_count, uris.size, uris.size)
                     } else {
                         // Copy while we hold the URI grant; the upload may run long after this activity is gone.
                         val files = withContext(Dispatchers.IO) { uris.map { copyToPrivate(it) } }
@@ -122,7 +123,7 @@ class ShareActivity : ComponentActivity() {
                                 wifiOnly = false,
                             )
                         }
-                        "${files.size} image${if (files.size == 1) "" else "s"}"
+                        resources.getQuantityString(R.plurals.images_count, files.size, files.size)
                     }
                 }
                 else -> {

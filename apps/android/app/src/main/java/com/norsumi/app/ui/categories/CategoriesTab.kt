@@ -50,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.norsumi.app.R
+import androidx.compose.ui.res.pluralStringResource
 import com.norsumi.app.data.model.Category
 import com.norsumi.app.data.model.CategoryNode
 import com.norsumi.app.ui.LocalContainer
@@ -91,7 +93,9 @@ fun CategoriesTab(bottom: PaddingValues, onOpenCategory: (String) -> Unit) {
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "${state.tree.size} sources · ${state.all.size - state.tree.size} topics · long-press to edit",
+                        pluralStringResource(R.plurals.sources_count, state.tree.size, state.tree.size) + " · " +
+                            pluralStringResource(R.plurals.topics_count, state.all.size - state.tree.size, state.all.size - state.tree.size) +
+                            " · long-press to edit",
                         style = MaterialTheme.typography.bodySmall, color = colors.muted,
                     )
                 }
@@ -160,7 +164,7 @@ private fun RootCard(node: CategoryNode, onClick: () -> Unit, onLongClick: () ->
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                "${node.totalCount} item${if (node.totalCount == 1) "" else "s"}",
+                pluralStringResource(R.plurals.items_count, node.totalCount, node.totalCount),
                 style = MaterialTheme.typography.labelMedium, color = ink,
             )
             if (node.children.isNotEmpty()) {

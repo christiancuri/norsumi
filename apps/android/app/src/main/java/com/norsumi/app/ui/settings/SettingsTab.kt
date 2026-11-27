@@ -66,6 +66,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.norsumi.app.BuildConfig
+import com.norsumi.app.R
 import com.norsumi.app.capture.MediaAccess
 import com.norsumi.app.capture.MediaPermissions
 import com.norsumi.app.capture.QueueStatus
@@ -154,7 +155,7 @@ fun SettingsTab(bottom: PaddingValues, onOpenPermissions: () -> Unit) {
                 scope.launch {
                     val n = container.capture.importLatest(20)
                     Toast.makeText(
-                        context, if (n == 0) "No screenshots found (check photo access)" else "Queued $n screenshot${if (n == 1) "" else "s"}",
+                        context, if (n == 0) "No screenshots found (check photo access)" else context.resources.getQuantityString(R.plurals.screenshots_queued, n, n),
                         Toast.LENGTH_SHORT,
                     ).show()
                 }

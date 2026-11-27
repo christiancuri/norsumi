@@ -86,6 +86,7 @@ fun LibraryTab(bottom: PaddingValues, onOpenItem: (String) -> Unit, onOpenPermis
                 items = state.items,
                 onOpen = { onOpenItem(it.id) },
                 onLoadMore = vm::loadMore,
+                loading = state.loading,
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = top + 8.dp, bottom = bottom.calculateBottomPadding() + 96.dp),
             ) {
                 item(key = "header", span = StaggeredGridItemSpan.FullLine, contentType = "header") {
@@ -130,13 +131,6 @@ fun LibraryTab(bottom: PaddingValues, onOpenItem: (String) -> Unit, onOpenPermis
                             EmptyState("Nothing here yet", "Take a screenshot or share a link to norsumi — it'll show up here, titled and filed.")
                         } else {
                             EmptyState("No ${state.filter.label.lowercase()} yet", "Try another filter.")
-                        }
-                    }
-                }
-                if (state.loading && state.items.isEmpty()) {
-                    item(key = "loading", span = StaggeredGridItemSpan.FullLine, contentType = "loading") {
-                        Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp)
                         }
                     }
                 }

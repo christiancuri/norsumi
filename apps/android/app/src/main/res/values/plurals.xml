@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="items_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <plurals name="sources_count">
+        <item quantity="one">%d source</item>
+        <item quantity="other">%d sources</item>
+    </plurals>
+    <plurals name="topics_count">
+        <item quantity="one">%d topic</item>
+        <item quantity="other">%d topics</item>
+    </plurals>
+    <plurals name="screenshots_queued">
+        <item quantity="one">Queued %d screenshot</item>
+        <item quantity="other">Queued %d screenshots</item>
+    </plurals>
+    <plurals name="images_count">
+        <item quantity="one">%d image</item>
+        <item quantity="other">%d images</item>
+    </plurals>
+</resources>

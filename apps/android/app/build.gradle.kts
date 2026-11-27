@@ -26,8 +26,8 @@ android {
         applicationId = "com.norsumi.app"
         minSdk = 29
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.1.2"
         buildConfigField("String", "DEFAULT_SERVER_URL", "\"https://norsumi.com\"")
         buildConfigField("String", "SOURCE_URL", "\"https://github.com/christiancuri/norsumi\"")
     }

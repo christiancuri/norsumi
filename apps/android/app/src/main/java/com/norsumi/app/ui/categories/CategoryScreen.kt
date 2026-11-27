@@ -30,6 +30,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,7 +50,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.norsumi.app.data.model.Category
+import com.norsumi.app.R
 import com.norsumi.app.data.model.ItemQuery
+import com.norsumi.app.data.model.totalCount
+import androidx.compose.ui.res.pluralStringResource
 import com.norsumi.app.ui.LocalContainer
 import com.norsumi.app.ui.components.EmptyState
 import com.norsumi.app.ui.components.ItemGrid
@@ -72,12 +76,15 @@ fun CategoryScreen(id: String, onBack: () -> Unit, onOpenItem: (String) -> Unit,
     val meta by container.store.meta.collectAsStateWithLifecycle()
     // Deleted here, elsewhere, or auto-removed by the server once empty: leave gracefully. Only trust
     // "missing" after a fresh fetch, since the category may be newer than the cached tree.
-    var verified by remember { mutableStateOf(false) }
+    // Saveable: coming back from item detail must not re-wait for a network round trip.
+    var verified by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        container.store.refreshMetaNow()
-        verified = true
+        if (!verified) {
+            container.store.refreshMetaNow()
+            verified = true
+        }
     }
-    var left by remember { mutableStateOf(false) }
+    var left by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(verified, meta.loaded, category == null) {
         if (verified && meta.loaded && category == null && !left) {
             left = true
@@ -86,6 +93,14 @@ fun CategoryScreen(id: String, onBack: () -> Unit, onOpenItem: (String) -> Unit,
     }
     val parent = cats.all.firstOrNull { it.id == category?.parentId }
     val children = cats.all.filter { it.parentId == id }.sortedBy { it.name.lowercase() }
+    val total = cats.all.totalCount(id)
+    // Counts changed (an item was filed here or below, moved, or deleted): refetch the grid quietly.
+    var lastTotal by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(total, meta.loaded) {
+        if (!meta.loaded) return@LaunchedEffect
+        if (lastTotal != null && lastTotal != total) itemsVm.refreshQuietly()
+        lastTotal = total
+    }
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
@@ -95,6 +110,7 @@ fun CategoryScreen(id: String, onBack: () -> Unit, onOpenItem: (String) -> Unit,
             items = items.items,
             onOpen = { onOpenItem(it.id) },
             onLoadMore = itemsVm::loadMore,
+            loading = items.loading,
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = top + 56.dp, bottom = bottom + 24.dp),
         ) {
             item(key = "header", span = StaggeredGridItemSpan.FullLine, contentType = "header") {
@@ -118,8 +134,9 @@ fun CategoryScreen(id: String, onBack: () -> Unit, onOpenItem: (String) -> Unit,
                             Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.muted)
                         }
                         Spacer(Modifier.height(4.dp))
+                        // Root pages count their own items plus every child topic's.
                         Text(
-                            "${items.items.size}${if (items.nextCursor != null) "+" else ""} items",
+                            pluralStringResource(R.plurals.items_count, total, total),
                             style = MaterialTheme.typography.labelMedium, color = colors.muted,
                         )
                     }
@@ -149,9 +166,10 @@ fun CategoryScreen(id: String, onBack: () -> Unit, onOpenItem: (String) -> Unit,
                     }
                 }
             }
-            if (!items.loading && items.items.isEmpty()) {
+            if (category != null && !items.loading && items.items.isEmpty()) {
                 item(key = "empty", span = StaggeredGridItemSpan.FullLine) {
-                    EmptyState("Nothing filed here", "Items norsumi files under this category show up here.")
+                    if (items.error != null) EmptyState("Couldn't load", items.error ?: "")
+                    else EmptyState("Nothing filed here", "Items norsumi files under this category show up here.")
                 }
             }
         }
