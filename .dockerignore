@@ -1,0 +1,25 @@
+# Build context is the repo root; keep it to what the images need.
+.git
+.github
+.husky
+.turbo
+.vscode
+.idea
+.claude
+.DS_Store
+node_modules
+**/node_modules
+**/dist
+**/build
+**/coverage
+**/.turbo
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+apps/android
+brand
+deploy
+docs
+*.log

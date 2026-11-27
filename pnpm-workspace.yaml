@@ -1,0 +1,32 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+catalogs:
+  devDeps:
+    "@types/node": "^26.6.11"
+    tsdown: "^0.23.7"
+    typescript: "7.0.2"
+    vite: "^8.4.0"
+    vitest: "^5.1.2"
+  react:
+    "@tanstack/react-query": "^5.108.4"
+    react: "^19.3.1"
+    react-dom: "^19.3.1"
+    react-query-kit: "^3.4.1"
+    react-router: "^8.5.3"
+    zustand: "^5.1.0"
+  server:
+    "@fastify/cors": "^11.4.3"
+    "@fastify/multipart": "^10.0.0"
+    fastify: "^5.12.8"
+    fastify-decorators: "^3.16.1"
+  utils:
+    axios: "^1.21.1"
+    date-fns: "^4.4.0"
+    zod: "^4.6.7"
+
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - "@swc/core"

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Solid fallback / splash color (mid-point of the #4F8CFF -> #2E6BFF gradient). -->
+    <color name="ic_launcher_background">#3F7CFF</color>
+</resources>

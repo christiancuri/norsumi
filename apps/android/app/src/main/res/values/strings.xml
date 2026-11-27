@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">norsumi</string>
+    <string name="share_label">Save to norsumi</string>
+    <string name="channel_uploads">Uploads</string>
+    <string name="channel_uploads_desc">Progress while screenshots and shared items are uploaded</string>
+    <string name="channel_watcher">Instant capture</string>
+    <string name="channel_watcher_desc">Shown while Instant capture watches for new screenshots</string>
+    <string name="notif_uploading">Saving to norsumi…</string>
+    <string name="notif_watching">Watching for screenshots</string>
+    <string name="notif_watching_text">New screenshots are saved to norsumi instantly</string>
+</resources>

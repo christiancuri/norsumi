@@ -1,0 +1,36 @@
+{
+  "name": "norsumi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Your screenshots and links, understood and organized by AI.",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "prepare": "husky",
+    "dev": "TURBO_TELEMETRY_DISABLED=1 turbo run dev --env-mode=loose",
+    "dev:api": "TURBO_TELEMETRY_DISABLED=1 turbo run dev -F @norsumi/api --env-mode=loose",
+    "dev:web": "TURBO_TELEMETRY_DISABLED=1 turbo run dev -F @norsumi/web",
+    "build": "TURBO_TELEMETRY_DISABLED=1 turbo run build",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "type-check": "TURBO_TELEMETRY_DISABLED=1 turbo run type-check",
+    "test": "TURBO_TELEMETRY_DISABLED=1 turbo run test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.9",
+    "@commitlint/cli": "^20.4.3",
+    "@commitlint/config-conventional": "^20.4.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.2",
+    "turbo": "^2.11.13",
+    "typescript": "catalog:devDeps"
+  },
+  "lint-staged": {
+    "*": [
+      "biome check --no-errors-on-unmatched --files-ignore-unknown=true"
+    ]
+  }
+}

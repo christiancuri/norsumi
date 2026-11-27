@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Run on the VPS from /opt/norsumi (CI calls it over SSH).
+#
+#   API_TAG=<sha7> ./deploy.sh              # update the api only
+#   WEB_TAG=<sha7> ./deploy.sh              # update the web only
+#   API_TAG=<sha7> WEB_TAG=<sha7> ./deploy.sh
+#   ./deploy.sh                             # re-apply config at current tags
+#
+# The tag each service runs is kept in .tags, so deploying one service never
+# rolls the other back. Rollback: API_TAG=<older sha7> ./deploy.sh
+set -euo pipefail
+cd "$(dirname "$0")"
+
+# Tags requested by the caller win over the stored ones.
+REQ_API_TAG="${API_TAG:-}"
+REQ_WEB_TAG="${WEB_TAG:-}"
+REQ_IMAGE_PREFIX="${IMAGE_PREFIX:-}"
+
+[ -f .env ] || { echo "missing $PWD/.env (IMAGE_PREFIX, TUNNEL_TOKEN)" >&2; exit 1; }
+[ -f api.env ] || { echo "missing $PWD/api.env (see api.env.example)" >&2; exit 1; }
+set -a
+# shellcheck source=/dev/null
+. ./.env
+# shellcheck source=/dev/null
+[ -f .tags ] && . ./.tags
+set +a
+IMAGE_PREFIX="${REQ_IMAGE_PREFIX:-${IMAGE_PREFIX:-}}"
+: "${IMAGE_PREFIX:?set IMAGE_PREFIX in .env}"
+: "${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env}"
+
+valid_tag() { [[ "$1" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; }
+
+pull=()
+if [ -n "$REQ_API_TAG" ]; then
+  valid_tag "$REQ_API_TAG" || { echo "bad API_TAG" >&2; exit 1; }
+  API_TAG="$REQ_API_TAG"
+  pull+=(api)
+fi
+if [ -n "$REQ_WEB_TAG" ]; then
+  valid_tag "$REQ_WEB_TAG" || { echo "bad WEB_TAG" >&2; exit 1; }
+  WEB_TAG="$REQ_WEB_TAG"
+  pull+=(web)
+fi
+export IMAGE_PREFIX API_TAG="${API_TAG:-latest}" WEB_TAG="${WEB_TAG:-latest}"
+
+COMPOSE=(docker compose -f docker-compose.yml)
+"${COMPOSE[@]}" config --quiet
+
+echo "Deploying api=$API_TAG web=$WEB_TAG (pulling: ${pull[*]:-nothing})"
+# Only the requested app images are pulled; caddy/cloudflared are pulled by
+# `up` when missing. A bare ./deploy.sh never changes what runs.
+if [ "${#pull[@]}" -gt 0 ]; then
+  "${COMPOSE[@]}" pull "${pull[@]}"
+fi
+"${COMPOSE[@]}" up -d --remove-orphans --wait --wait-timeout 180
+
+# Record what is running only once it is up and healthy.
+printf 'API_TAG=%s\nWEB_TAG=%s\n' "$API_TAG" "$WEB_TAG" > .tags.tmp && mv .tags.tmp .tags
+
+# Caddy runs with `admin off`, so a changed Caddyfile only applies on restart.
+sum="$(sha256sum Caddyfile | cut -d' ' -f1)"
+if [ "$sum" != "$(cat .caddyfile.sha256 2>/dev/null || true)" ]; then
+  "${COMPOSE[@]}" restart caddy
+  echo "$sum" > .caddyfile.sha256
+fi
+
+docker image prune -f --filter "until=72h" >/dev/null
+"${COMPOSE[@]}" ps

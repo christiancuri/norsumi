@@ -1,0 +1,46 @@
+{
+  "name": "@norsumi/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "norsumi API: ingestion, encryption, AI pipeline and search.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "dist/main.js",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "dev": "tsc -p tsconfig.build.json && (tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch --env-file-if-exists=.env --enable-source-maps dist/main.js)",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "start": "node --env-file-if-exists=.env --enable-source-maps dist/main.js",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest --watch false"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1178.0",
+    "@fastify/cors": "catalog:server",
+    "@fastify/multipart": "^10.1.9",
+    "@fastify/rate-limit": "^11.3.0",
+    "@mozilla/readability": "^0.6.0",
+    "@node-rs/argon2": "^2.2.2",
+    "@norsumi/common": "workspace:*",
+    "@typegoose/typegoose": "13.5.0",
+    "fastify": "catalog:server",
+    "fastify-decorators": "catalog:server",
+    "heic-decode": "^2.1.0",
+    "jose": "^6.2.18",
+    "linkedom": "^0.18.15",
+    "mongoose": "~9.9.5",
+    "pino": "^10.4.0",
+    "reflect-metadata": "^0.2.2",
+    "sharp": "^0.35.5",
+    "undici": "^8.13.1",
+    "zod": "catalog:utils"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:devDeps",
+    "pino-pretty": "^13.2.0",
+    "typescript": "catalog:devDeps",
+    "vitest": "catalog:devDeps"
+  }
+}

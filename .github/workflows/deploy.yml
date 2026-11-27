@@ -1,0 +1,191 @@
+name: Deploy
+
+# Push to main: run CI, build and push only the images whose inputs changed,
+# sync deploy/ to the VPS when it changed, then run /opt/norsumi/deploy.sh
+# with the new tags. Services that did not change keep their running tag.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      api:
+        description: Build and deploy the API
+        type: boolean
+        default: false
+      web:
+        description: Build and deploy the web app
+        type: boolean
+        default: false
+      infra:
+        description: Sync deploy/ (compose, Caddyfile, deploy.sh) to the VPS
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  APP_DIR: /opt/norsumi
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.plan.outputs.apps }}
+      api: ${{ steps.plan.outputs.api }}
+      web: ${{ steps.plan.outputs.web }}
+      infra: ${{ steps.plan.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            api:
+              - apps/api/**
+              - packages/common/**
+              - package.json
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
+              - turbo.json
+              - .dockerignore
+            web:
+              - apps/web/**
+              - packages/common/**
+              - package.json
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
+              - turbo.json
+              - .dockerignore
+            infra:
+              - deploy/**
+
+      - name: Plan
+        id: plan
+        env:
+          API: ${{ steps.filter.outputs.api == 'true' || inputs.api == true }}
+          WEB: ${{ steps.filter.outputs.web == 'true' || inputs.web == true }}
+          INFRA: ${{ steps.filter.outputs.infra == 'true' || inputs.infra == true }}
+        run: |
+          apps="$(jq -cn --arg api "$API" --arg web "$WEB" \
+            '[(if $api == "true" then "api" else empty end), (if $web == "true" then "web" else empty end)]')"
+          {
+            echo "apps=$apps"
+            echo "api=$API"
+            echo "web=$WEB"
+            echo "infra=$INFRA"
+          } >> "$GITHUB_OUTPUT"
+          echo "### Deploy plan: apps=$apps infra=$INFRA" >> "$GITHUB_STEP_SUMMARY"
+
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  images:
+    needs: [changes, ci]
+    if: needs.changes.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        app: ${{ fromJSON(needs.changes.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Docker Hub, same account/namespace as filebase.
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Short SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          platforms: linux/amd64
+          push: true
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.licenses=AGPL-3.0-only
+          tags: |
+            ${{ secrets.DOCKERHUB_NAMESPACE || secrets.DOCKERHUB_USERNAME }}/norsumi-${{ matrix.app }}:latest
+            ${{ secrets.DOCKERHUB_NAMESPACE || secrets.DOCKERHUB_USERNAME }}/norsumi-${{ matrix.app }}:${{ steps.sha.outputs.short }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+  deploy:
+    needs: [changes, ci, images]
+    # images is skipped (not failed) when only deploy/ changed.
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.ci.result == 'success' &&
+      (needs.images.result == 'success' || needs.images.result == 'skipped') &&
+      (needs.changes.outputs.apps != '[]' || needs.changes.outputs.infra == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+    steps:
+      - uses: actions/checkout@v7
+        if: needs.changes.outputs.infra == 'true'
+
+      - name: Configure SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Pin the host key when provided; fall back to trust-on-first-use.
+          if [ -n "$VPS_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$VPS_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "${VPS_SSH_PORT:-22}" "$VPS_HOST" >> ~/.ssh/known_hosts
+          fi
+
+      # Only tracked config is copied; .env, api.env and .tags on the VPS are
+      # never touched.
+      - name: Sync deploy files
+        if: needs.changes.outputs.infra == 'true'
+        run: |
+          scp -i ~/.ssh/id_deploy -P "${VPS_SSH_PORT:-22}" -o BatchMode=yes \
+            deploy/docker-compose.yml deploy/Caddyfile deploy/deploy.sh deploy/api.env.example \
+            "$VPS_USER@$VPS_HOST:$APP_DIR/"
+
+      - name: Deploy
+        env:
+          IMAGE_PREFIX: ${{ secrets.DOCKERHUB_NAMESPACE || secrets.DOCKERHUB_USERNAME }}
+          DEPLOY_API: ${{ needs.changes.outputs.api }}
+          DEPLOY_WEB: ${{ needs.changes.outputs.web }}
+        run: |
+          tag="${GITHUB_SHA::7}"
+          vars="IMAGE_PREFIX='$IMAGE_PREFIX'"
+          [ "$DEPLOY_API" = "true" ] && vars="$vars API_TAG='$tag'"
+          [ "$DEPLOY_WEB" = "true" ] && vars="$vars WEB_TAG='$tag'"
+          # shellcheck disable=SC2029 # expanded here on purpose
+          ssh -i ~/.ssh/id_deploy -p "${VPS_SSH_PORT:-22}" -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "cd $APP_DIR && chmod +x deploy.sh && $vars ./deploy.sh"
+
+      # Fatal only once the HEALTHCHECK_URL repo variable is set (DNS live).
+      - name: Health check
+        if: vars.HEALTHCHECK_URL != ''
+        env:
+          HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL }}
+        run: |
+          curl -fsS --retry 10 --retry-delay 6 --retry-all-errors --max-time 10 "$HEALTHCHECK_URL"

@@ -1,0 +1,61 @@
+# Internal router for the production stack. Cloudflare terminates TLS and the
+# tunnel (cloudflared) sends plain HTTP to caddy:80; nothing is published on
+# the host. Public hostnames in the tunnel: norsumi.com, www.norsumi.com.
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		# cloudflared reaches us over the compose network.
+		trusted_proxies static private_ranges
+		# Cloudflare sets Cf-Connecting-Ip (clients cannot spoof it). Never
+		# read X-Forwarded-For: Cloudflare appends to whatever the client sent.
+		client_ip_headers Cf-Connecting-Ip
+	}
+}
+
+# Container healthcheck endpoint (not routed by the tunnel).
+:8088 {
+	respond /healthz 200
+}
+
+(api_proxy) {
+	# Uploads are capped at 25 MB by the API; leave room for multipart framing.
+	request_body {
+		max_size 26MB
+	}
+	reverse_proxy api:3000 {
+		# Replace (not append to) X-Forwarded-For with the client IP Caddy
+		# derived from Cf-Connecting-Ip (set by Cloudflare, not spoofable).
+		# The API trusts exactly this one hop (TRUST_PROXY=true).
+		header_up X-Forwarded-For {client_ip}
+		flush_interval -1
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 5m
+			read_timeout 5m
+			write_timeout 5m
+		}
+	}
+}
+
+http://norsumi.com {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	handle /api/* {
+		import api_proxy
+	}
+
+	handle /health {
+		import api_proxy
+	}
+
+	handle {
+		reverse_proxy web:8080
+	}
+}
+
+http://www.norsumi.com {
+	redir https://norsumi.com{uri} 308
+}

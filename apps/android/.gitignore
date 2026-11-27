@@ -1,0 +1,22 @@
+# Build output
+/build
+/app/build
+/dist
+.gradle/
+.kotlin/
+captures/
+*.apk
+*.aab
+
+# Local machine settings
+local.properties
+.idea/
+*.iml
+.DS_Store
+/.sc
+
+# Signing material never belongs in the repository
+*.jks
+*.keystore
+*.p12
+keystore.properties

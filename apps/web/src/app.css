@@ -1,0 +1,227 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@import "@fontsource/geist/400.css";
+@import "@fontsource/geist/500.css";
+@import "@fontsource/geist/600.css";
+@import "@fontsource/geist-mono/400.css";
+@import "@fontsource/geist-mono/500.css";
+@import "@fontsource/instrument-serif/400.css";
+@import "@fontsource/instrument-serif/400-italic.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--ring);
+  --color-hairline: var(--hairline);
+
+  --font-sans: "Geist", Inter, system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --shadow-lift: 0 8px 30px -12px rgb(10 13 23 / 0.25);
+  --shadow-float:
+    0 0 0 1px rgb(10 13 23 / 0.04), 0 2px 4px rgb(10 13 23 / 0.04),
+    0 24px 60px -20px rgb(10 13 23 / 0.35);
+  --shadow-glow: 0 10px 40px -10px rgb(46 107 255 / 0.55);
+
+  --animate-shimmer: shimmer 1.8s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+}
+
+:root {
+  --background: #f6f7fb;
+  --surface: #ffffff;
+  --surface-2: #eef0f6;
+  --popover: #ffffff;
+  --accent: #e7eaf3;
+  --border: #e3e6ef;
+  --hairline: rgb(10 13 23 / 0.06);
+  --foreground: #0a0d17;
+  --muted-foreground: #626a80;
+  --primary: #2e6bff;
+  --primary-foreground: #ffffff;
+  --ring: rgb(46 107 255 / 0.4);
+  --success: #16a36a;
+  --warning: #d97706;
+  --destructive: #e5484d;
+  --glass: rgb(246 247 251 / 0.72);
+  --brand-from: #4f8cff;
+  --brand-to: #2e6bff;
+  color-scheme: light;
+}
+
+.dark {
+  --background: #07080c;
+  --surface: #10121a;
+  --surface-2: #161925;
+  --popover: #131622;
+  --accent: #1c2030;
+  --border: #232738;
+  --hairline: rgb(255 255 255 / 0.06);
+  --foreground: #eef0f8;
+  --muted-foreground: #8b92a8;
+  --primary: #5b8fff;
+  --primary-foreground: #ffffff;
+  --ring: rgb(91 143 255 / 0.5);
+  --success: #3dd68c;
+  --warning: #fbbf24;
+  --destructive: #ff6369;
+  --glass: rgb(7 8 12 / 0.72);
+  --shadow-lift: 0 10px 34px -12px rgb(0 0 0 / 0.7);
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-background text-foreground font-sans text-sm;
+    font-feature-settings:
+      "ss01" 1,
+      "cv11" 1;
+  }
+  ::selection {
+    background: rgb(46 107 255 / 0.22);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility glass {
+  background: var(--glass);
+  backdrop-filter: saturate(1.6) blur(16px);
+  -webkit-backdrop-filter: saturate(1.6) blur(16px);
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+@utility bg-brand {
+  background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+}
+
+@utility text-gradient {
+  background-image: linear-gradient(
+    120deg,
+    var(--foreground) 10%,
+    color-mix(in oklab, var(--foreground) 55%, var(--primary)) 90%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Diagonal light sweep for items the AI is still reading. */
+@utility shimmer {
+  position: relative;
+  overflow: hidden;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in oklab, var(--surface) 70%, transparent) 50%,
+      transparent 80%
+    );
+    animation: var(--animate-shimmer);
+  }
+}
+
+@utility grain {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after,
+  .animate-float,
+  .animate-pulse {
+    animation: none;
+  }
+}

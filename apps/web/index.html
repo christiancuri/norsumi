@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#2E6BFF" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>norsumi — Every screenshot, remembered.</title>
+    <meta name="description" content="norsumi turns your screenshots, links and notes into a beautifully organized library, sorted by AI. Open source and self-hostable." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="norsumi" />
+    <meta property="og:title" content="norsumi — Every screenshot, remembered." />
+    <meta property="og:description" content="Your screenshots, links and notes, understood and organized by AI. Open source and self-hostable." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="norsumi — Every screenshot, remembered." />
+    <meta name="twitter:image" content="/og-image.png" />
+    <script>
+      (function () {
+        let theme = 'system';
+        try {
+          const raw = localStorage.getItem('norsumi-theme');
+          if (raw) theme = JSON.parse(raw).state.theme || 'system';
+        } catch {}
+        const dark =
+          theme === 'dark' ||
+          (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      })();
+    </script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run norsumi.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
