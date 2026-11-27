@@ -8,7 +8,7 @@ import {
   createCategoryBody,
   updateCategoryBody,
 } from "./categories.schemas.js";
-import * as CategoriesService from "./categories.service.js";
+import { CategoriesService } from "./categories.service.js";
 
 @Controller("/api/categories")
 export default class CategoriesController {

@@ -8,7 +8,7 @@ import {
   refreshBody,
   registerBody,
 } from "./auth.schemas.js";
-import * as AuthService from "./auth.service.js";
+import { AuthService } from "./auth.service.js";
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 

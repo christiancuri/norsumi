@@ -3,7 +3,7 @@ import { Controller, DELETE, GET, PATCH } from "fastify-decorators";
 
 import { requireUser } from "../../hooks/require-user.js";
 import { deleteMeBody, updateMeBody } from "./auth.schemas.js";
-import * as AuthService from "./auth.service.js";
+import { AuthService } from "./auth.service.js";
 
 @Controller("/api/me")
 export default class MeController {

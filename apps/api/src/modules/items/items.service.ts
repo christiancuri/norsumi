@@ -437,3 +437,5 @@ export async function reprocess(
   Worker.kick();
   return toDto(userId, doc);
 }
+
+export * as ItemsService from "./items.service.js";

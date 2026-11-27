@@ -420,3 +420,5 @@ export async function pruneEmptyAiCategories(userId: string): Promise<number> {
   }
   return res.deletedCount;
 }
+
+export * as CategoriesService from "./categories.service.js";

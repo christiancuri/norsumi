@@ -280,3 +280,5 @@ export async function deleteMe(
   }
   await purgeUser(userId);
 }
+
+export * as AuthService from "./auth.service.js";

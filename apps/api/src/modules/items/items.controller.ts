@@ -12,7 +12,7 @@ import {
   updateItemBody,
   uploadFields,
 } from "./items.schemas.js";
-import * as ItemsService from "./items.service.js";
+import { ItemsService } from "./items.service.js";
 
 @Controller("/api/items")
 export default class ItemsController {

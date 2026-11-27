@@ -20,6 +20,10 @@ on it. `AGENTS.md` is a symlink to this file (Codex and other agents).
 - **Contracts first.** `docs/api.md` + `packages/common/src` are the source of
   truth. Change both, rebuild common (`pnpm -F @norsumi/common build`), then
   update every client that the change touches (web AND Android).
+- **Service modules** (API and web) re-export themselves as a namespace at the
+  bottom of the file — `export * as AuthService from "./auth.service.js";` —
+  and callers import it by name: `import { AuthService } from
+  "./auth.service.js";`. Never `import * as AuthService from ...`.
 - **Design** follows `docs/design.md`. Never redraw the logo in code; import
   the files from `brand/`.
 - **Never print or commit secrets.** Dev values live in `apps/api/.env`
